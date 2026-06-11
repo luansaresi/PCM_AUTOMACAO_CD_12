@@ -953,6 +953,7 @@ function rOSModal(os){
         </div>
        </div>`;
 
+  // Admin sempre vê campos editáveis — mesmo OS concluída pode ser editada
   const formCols = admin ? `<div class="fg2">
     ${select('Tipo OS',tpOpts,os.tipo,'e-tp')}
     ${select('Prioridade',prOpts,os.prioridade,'e-pr')}
@@ -984,7 +985,7 @@ function rOSModal(os){
       ['Data Prevista',os.dataPrevista],
       ['Conclusão',os.dataConclusao?(os.dataConclusao+(os.horaConclusao?' às '+os.horaConclusao:'')):'—'],
       ['HH Previsto',os.hhPrevisto+'h'],['HH Real',os.hhReal+'h']
-    ].map(([l,v])=>`<div style="padding:8px 0;border-bottom:1px solid rgba(37,45,66,.5);display:flex;justify-content:space-between;font-size:13px;gap:12px"><span style="color:var(--mut);font-size:12px">${l}</span><strong>${esc(v)}</strong></div>`).join('')}
+    ].map(([l,v])=>`<div style="padding:8px 0;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;font-size:13px;gap:12px"><span style="color:var(--mut);font-size:12px">${l}</span><strong style="color:var(--txt)">${esc(v)}</strong></div>`).join('')}
     ${textarea('Descrição',os.descricao,'')}
     ${textarea('Ação Corretiva',os.acaoCorretiva,'')}`;
 
@@ -1044,6 +1045,41 @@ function confirmarConclusao(){
   os.hhReal=parseFloat(R('conc-hhr')?R('conc-hhr').value:os.hhReal)||os.hhReal;
   if(window._fotoBase64){ os.foto=window._fotoBase64; window._fotoBase64=null; }
   saveAll();cm();rOST();
+}
+
+function svOS(id){
+  const os=OS_DATA.find(o=>o.id===id);
+  if(!os){alert('OS não encontrada.');return;}
+  // Salva todos os campos editáveis
+  if(R('e-tp'))  os.tipo          = R('e-tp').value;
+  if(R('e-pr'))  os.prioridade    = R('e-pr').value;
+  if(R('e-st'))  os.status        = R('e-st').value;
+  if(R('e-esp')) os.especialidade = R('e-esp').value;
+  if(R('e-eq'))  os.equipamento   = R('e-eq').value;
+  if(R('e-tag')) os.tag           = R('e-tag').value;
+  if(R('e-ar'))  os.area          = R('e-ar').value;
+  if(R('e-ex'))  os.executante    = R('e-ex').value;
+  if(R('e-sol')) os.solicitante   = R('e-sol').value;
+  if(R('e-dp'))  os.dataPrevista  = R('e-dp').value;
+  if(R('e-ha'))  os.horaAbertura  = R('e-ha').value;
+  if(R('e-di'))  os.dataInicio    = R('e-di').value;
+  if(R('e-hi'))  os.horaInicio    = R('e-hi').value;
+  if(R('e-dc'))  os.dataConclusao = R('e-dc').value;
+  if(R('e-hc'))  os.horaConclusao = R('e-hc').value;
+  if(R('e-hp'))  os.hhPrevisto    = parseFloat(R('e-hp').value)||0;
+  if(R('e-hr'))  os.hhReal        = parseFloat(R('e-hr').value)||0;
+  if(R('e-desc'))  os.descricao      = R('e-desc').value;
+  if(R('e-causa')) os.causaRaiz      = R('e-causa').value;
+  if(R('e-acao'))  os.acaoCorretiva  = R('e-acao').value;
+  // Se mudou para Em Andamento e não tem dataInicio, registra agora
+  if(os.status==='Em Andamento' && !os.dataInicio){
+    const ag=new Date();
+    os.dataInicio = ag.toLocaleDateString('pt-BR');
+    os.horaInicio = ag.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+  saveAll();
+  cm();
+  rOST();
 }
 
 // rOSEdit mantido para compatibilidade
@@ -1118,7 +1154,8 @@ function rEQT(){
   const f=EQUIPAMENTOS.filter(e=>(e.tag+e.descricao+e.fabricante+e.modelo).toLowerCase().includes(b)&&(eqF.area==='Todas'||e.area===eqF.area));
   const w=R('eqtw');
   if(!f.length){w.innerHTML='<div class="emp"><div style="font-size:40px;margin-bottom:10px">⚙️</div>Nenhum equipamento encontrado</div>';return;}
-  const rows=f.map(e=>{const idx=EQUIPAMENTOS.indexOf(e);return`<tr>
+  const rows=f.map(e=>{const idx=EQUIPAMENTOS.indexOf(e);return`<tr onclick="${isAdmin()?`openEditEQ(${idx})`:''}" style="cursor:${isAdmin()?'pointer':'default'}"
+    onmouseover="this.style.background='${isAdmin()?'rgba(249,115,22,.05)':''}'" onmouseout="this.style.background=''">
     <td><strong style="color:var(--acc);font-weight:800">${esc(e.tag)}</strong></td>
     <td>${esc(e.descricao)}</td><td>${esc(e.area)}</td><td>${esc(e.fabricante)}</td>
     <td style="color:var(--mut);font-size:12px">${esc(e.modelo)}</td><td>${e.ano}</td>
@@ -1126,7 +1163,7 @@ function rEQT(){
     <td style="font-weight:700">${fR(e.custo)}</td><td>${bdg(e.status,ecol(e.status))}</td>
     <td style="color:var(--mut);font-size:12px">${esc(e.local)}</td>
     <td style="color:var(--mut);font-size:11px">${esc(e.obs)}</td>
-    ${isAdmin()?`<td><button class="btn bs bsm" onclick="openEditEQ(${idx})">✏️ Editar</button></td>`:'<td></td>'}
+    ${isAdmin()?`<td onclick="event.stopPropagation()"><button class="btn bs bsm" onclick="openEditEQ(${idx})">✏️ Editar</button></td>`:'<td></td>'}
   </tr>`;}).join('');
   w.innerHTML=`<div class="tw"><table><thead><tr><th>TAG</th><th>Descrição</th><th>Área</th><th>Fabricante</th><th>Modelo</th><th>Ano</th><th>Potência</th><th>Criticidade</th><th>Custo Rep.</th><th>Status</th><th>Localização</th><th>Observações</th>${isAdmin()?'<th>Ações</th>':''}</tr></thead><tbody>${rows}</tbody></table></div>`;
   setTimeout(applyDS,30);
@@ -1238,7 +1275,9 @@ function rESTT(){
   const f=ESTOQUE.filter(e=>(e.cod+e.desc).toLowerCase().includes(b)&&(estF.cat==='Todos'||e.cat===estF.cat)&&(estF.status==='Todos'||e.st===estF.status));
   const w=R('esttw');
   if(!f.length){w.innerHTML='<div class="emp"><div style="font-size:40px;margin-bottom:10px">📦</div>Nenhum item encontrado</div>';return;}
-  const rows=f.map(e=>{const al=e.qtd<e.min;const idx=ESTOQUE.indexOf(e);return`<tr style="${al?'background:rgba(239,68,68,.04)':''}">
+  const rows=f.map(e=>{const al=e.qtd<e.min;const idx=ESTOQUE.indexOf(e);return`<tr style="${al?'background:rgba(239,68,68,.04)':''};cursor:${isAdmin()?'pointer':'default'}"
+    onclick="${isAdmin()?`openEditEST(${idx})`:''}"
+    onmouseover="this.style.background='${al?'rgba(239,68,68,.07)':'rgba(249,115,22,.05)'}'" onmouseout="this.style.background='${al?'rgba(239,68,68,.04)':''}'" >
     <td><strong style="color:var(--acc);font-weight:800">${esc(e.cod)}</strong></td>
     <td>${esc(e.desc)}${al?'<span style="display:inline-flex;align-items:center;margin-left:6px;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(239,68,68,.15);color:#ef4444">⚠ MÍNIMO</span>':''}</td>
     <td>${esc(e.cat)}</td><td style="color:var(--mut)">${esc(e.un)}</td>
@@ -1249,7 +1288,7 @@ function rESTT(){
     <td style="font-weight:800;text-align:right;color:var(--acc2)">${fR(e.qtd*e.vlr)}</td>
     <td>${esc(e.forn)}</td><td style="font-weight:600;text-align:center">${e.lead}d</td>
     <td>${bdg(e.st,stcol(e.st))}</td>
-    ${isAdmin()?`<td><button class="btn bs bsm" onclick="openEditEST(${idx})">✏️ Editar</button></td>`:'<td></td>'}
+    ${isAdmin()?`<td onclick="event.stopPropagation()"><button class="btn bs bsm" onclick="openEditEST(${idx})">✏️ Editar</button></td>`:'<td></td>'}
   </tr>`;}).join('');
   w.innerHTML=`<div class="tw"><table><thead><tr><th>Código</th><th>Descrição</th><th>Categoria</th><th>Un.</th><th>Qtd. Atual</th><th>Qtd. Mín.</th><th>Pto. Pedido</th><th style="text-align:right">Vlr. Unit.</th><th style="text-align:right">Vlr. Total</th><th>Fornecedor</th><th>Lead</th><th>Status</th>${isAdmin()?'<th>Ações</th>':''}</tr></thead><tbody>${rows}</tbody></table></div>`;
   setTimeout(applyDS,30);
@@ -1296,13 +1335,14 @@ function rCU(c){
   const sm2=f=>CUSTOS_DATA.reduce((a,x)=>a+x[f],0);
   const tMO=sm2('mo'),tMat=sm2('mat'),tTerc=sm2('terc'),tOut=sm2('outros'),tG=sm2('total'),tOrc=sm2('orc');
   const kCards=[{i:'👷',l:'Mão de Obra',v:tMO,c:'#f97316'},{i:'🔩',l:'Materiais',v:tMat,c:'#3b82f6'},{i:'🏢',l:'Terceiros',v:tTerc,c:'#8b5cf6'},{i:'💰',l:'Total Gasto',v:tG,c:'#22c55e'},{i:'📊',l:'Orçamento',v:tOrc,c:'#f59e0b'}].map(k=>`<div class="kc" style="cursor:default"><div class="ka" style="background:${k.c}"></div><div style="font-size:20px;margin-bottom:8px">${k.i}</div><div style="font-size:17px;font-weight:800;color:${k.c}">${fR(k.v)}</div><div style="font-size:10px;color:var(--mut);text-transform:uppercase;margin-top:4px">${k.l}</div></div>`).join('');
-  const rows=CUSTOS_DATA.map((x,i)=>`<tr>
+  const rows=CUSTOS_DATA.map((x,i)=>`<tr onclick="${isAdmin()?`openEditCU(${i})`:''}" style="cursor:${isAdmin()?'pointer':'default'}"
+    onmouseover="this.style.background='rgba(249,115,22,.05)'" onmouseout="this.style.background=''">
     <td><strong style="color:var(--acc)">${esc(x.os)}</strong></td><td>${esc(x.eq)}</td><td>${esc(x.area)}</td>
     <td>${bdg(x.tipo,'#6b7a9b')}</td><td>${fR(x.mo)}</td><td>${fR(x.mat)}</td>
     <td>${fR(x.terc)}</td><td>${fR(x.outros)}</td><td><strong>${fR(x.total)}</strong></td>
     <td>${fR(x.orc)}</td><td style="color:${x.total<=x.orc?'#22c55e':'#ef4444'};font-weight:700">${fR(x.orc-x.total)}</td>
     <td>${bdg(x.total<=x.orc?'Dentro':'Estourado',x.total<=x.orc?'#22c55e':'#ef4444')}</td>
-    ${isAdmin()?`<td><button class="btn bs bsm" onclick="openEditCU(${i})">✏️ Editar</button></td>`:'<td></td>'}
+    ${isAdmin()?`<td onclick="event.stopPropagation()"><button class="btn bs bsm" onclick="openEditCU(${i})">✏️ Editar</button></td>`:'<td></td>'}
   </tr>`).join('');
   c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px">${kCards}</div>
     <div class="card"><div class="ch"><div class="ct">💰 Controle de Custos por OS</div>${isAdmin()?`<button class="btn bp bsm" onclick="openNovCU()">➕ Novo</button>`:''}</div>
